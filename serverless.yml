@@ -1,0 +1,135 @@
+service: ai-project
+
+provider:
+  name: aws
+  runtime: nodejs20.x
+  region: ${env:REGION}
+  environment:
+    REGION: ${env:REGION}
+    DATA_PARSING_QUEUE_URL: !Ref DataParsingQueue
+  iamRoleStatements:
+    - Effect: "Allow"
+      Action:
+        - "s3:GetObject"
+      Resource: "arn:aws:s3:::dataset-bucket-5/*"
+    - Effect: "Allow"
+      Action:
+        - "sqs:ReceiveMessage"
+        - "sqs:DeleteMessage"
+        - "sqs:GetQueueAttributes"
+      Resource: !GetAtt DataParsingQueue.Arn
+    - Effect: "Allow"
+      Action:
+        - "events:PutEvents"
+      Resource: "arn:aws:events:${env:REGION}:${env:AWS_ACCOUNT_ID}:event-bus/default"
+
+plugins:
+  - serverless-offline
+  - serverless-dotenv-plugin
+
+package:
+  excludeDevDependencies: true
+
+functions:
+  data-parser:
+    handler: src/data-parser.handler
+    events:
+      - sqs:
+          arn: !GetAtt DataParsingQueue.Arn
+
+resources:
+  Resources:
+    S3Bucket:
+      Type: AWS::S3::Bucket
+      Properties:
+        BucketName: dataset-bucket-5
+        NotificationConfiguration:
+          EventBridgeConfiguration:
+            EventBridgeEnabled: true
+    DataParsingQueue:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: data-parsing-queue
+    S3EventRule:
+      Type: AWS::Events::Rule
+      Properties:
+        EventPattern:
+          source:
+            - aws.s3
+          detail-type:
+            - "Object Created"
+          detail:
+            bucket:
+              name:
+                - dataset-bucket-5
+        Targets:
+          - Arn: !GetAtt DataParsingQueue.Arn
+            Id: DataParsingQueueTarget
+    SQSQueuePolicy:
+      Type: AWS::SQS::QueuePolicy
+      Properties:
+        PolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Principal:
+                Service: events.amazonaws.com
+              Action: sqs:SendMessage
+              Resource: !GetAtt DataParsingQueue.Arn
+        Queues:
+          - !Ref DataParsingQueue
+    SNSTopic:
+      Type: AWS::SNS::Topic
+      Properties:
+        TopicName: file-processed-topic
+    SNSTopicSubscription:
+      Type: AWS::SNS::Subscription
+      Properties:
+        TopicArn: !Ref SNSTopic
+        Protocol: email
+        Endpoint: Volodymyr_Vasylkivskyi@epam.com
+    SNSTopicPolicy:
+      Type: AWS::SNS::TopicPolicy
+      Properties:
+        PolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Principal:
+                Service: lambda.amazonaws.com
+              Action: sns:Publish
+              Resource: !Ref SNSTopic
+        Topics:
+          - !Ref SNSTopic
+    FileParsedEventRule:
+      Type: AWS::Events::Rule
+      Properties:
+        EventPattern:
+          source:
+            - custom.dataParser
+          detail-type:
+            - FILE_PARSED
+        Targets:
+          - Arn: !Ref SNSTopic
+            Id: SNSTopicTarget
+            RoleArn: !GetAtt EventBridgeToSNSRole.Arn
+    EventBridgeToSNSRole:
+      Type: AWS::IAM::Role
+      Properties:
+        RoleName: EventBridgeToSNSRole
+        AssumeRolePolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Principal:
+                Service: events.amazonaws.com
+              Action: sts:AssumeRole
+        Policies:
+          - PolicyName: EventBridgeToSNSPolicy
+            PolicyDocument:
+              Version: "2012-10-17"
+              Statement:
+                - Effect: Allow
+                  Action:
+                    - sns:Publish
+                  Resource: !Ref SNSTopic
