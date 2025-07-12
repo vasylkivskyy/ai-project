@@ -22,6 +22,12 @@ provider:
       Action:
         - "events:PutEvents"
       Resource: "arn:aws:events:${env:REGION}:${env:AWS_ACCOUNT_ID}:event-bus/default"
+    - Effect: "Allow"
+      Action:
+        - "dynamodb:PutItem"
+      Resource:
+        - "arn:aws:dynamodb:${env:REGION}:${env:AWS_ACCOUNT_ID}:table/parsed-reviews"
+        - "arn:aws:dynamodb:${env:REGION}:${env:AWS_ACCOUNT_ID}:table/parsing-metadata"
 
 plugins:
   - serverless-offline
@@ -32,7 +38,7 @@ package:
 
 functions:
   data-parser:
-    handler: src/data-parser.handler
+    handler: src/functions/data-parser/handler.handler
     events:
       - sqs:
           arn: !GetAtt DataParsingQueue.Arn
@@ -133,3 +139,29 @@ resources:
                   Action:
                     - sns:Publish
                   Resource: !Ref SNSTopic
+    ReviewsTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: parsed-reviews
+        AttributeDefinitions:
+          - AttributeName: Id
+            AttributeType: S
+        KeySchema:
+          - AttributeName: Id
+            KeyType: HASH
+        ProvisionedThroughput:
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
+    MetadataTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: parsing-metadata
+        AttributeDefinitions:
+          - AttributeName: Id
+            AttributeType: S
+        KeySchema:
+          - AttributeName: Id
+            KeyType: HASH
+        ProvisionedThroughput:
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
