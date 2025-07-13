@@ -17,7 +17,9 @@ provider:
         - "sqs:ReceiveMessage"
         - "sqs:DeleteMessage"
         - "sqs:GetQueueAttributes"
-      Resource: !GetAtt DataParsingQueue.Arn
+      Resource:
+        - !GetAtt DataParsingQueue.Arn
+        - !GetAtt DataTransformationQueue.Arn
     - Effect: "Allow"
       Action:
         - "events:PutEvents"
@@ -28,6 +30,16 @@ provider:
       Resource:
         - "arn:aws:dynamodb:${env:REGION}:${env:AWS_ACCOUNT_ID}:table/parsed-reviews"
         - "arn:aws:dynamodb:${env:REGION}:${env:AWS_ACCOUNT_ID}:table/parsing-metadata"
+    - Effect: "Allow"
+      Action:
+        - "dynamodb:DescribeStream"
+        - "dynamodb:GetRecords"
+        - "dynamodb:GetShardIterator"
+      Resource: "arn:aws:dynamodb:${env:REGION}:${env:AWS_ACCOUNT_ID}:table/parsed-reviews/stream/*"
+    - Effect: "Allow"
+      Action:
+        - "sqs:SendMessage"
+      Resource: !GetAtt DataTransformationQueue.Arn
 
 plugins:
   - serverless-offline
@@ -42,6 +54,11 @@ functions:
     events:
       - sqs:
           arn: !GetAtt DataParsingQueue.Arn
+  data-transformer:
+    handler: src/functions/data-transformer/handler.handler
+    events:
+      - sqs:
+          arn: !GetAtt DataTransformationQueue.Arn
 
 resources:
   Resources:
@@ -143,6 +160,8 @@ resources:
       Type: AWS::DynamoDB::Table
       Properties:
         TableName: parsed-reviews
+        StreamSpecification:
+          StreamViewType: NEW_IMAGE
         AttributeDefinitions:
           - AttributeName: Id
             AttributeType: S
@@ -165,3 +184,56 @@ resources:
         ProvisionedThroughput:
           ReadCapacityUnits: 1
           WriteCapacityUnits: 1
+    DataTransformationQueue:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: data-transformation-queue
+    DataTransformationQueuePolicy:
+      Type: AWS::SQS::QueuePolicy
+      Properties:
+        PolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Principal:
+                Service: events.amazonaws.com
+              Action: sqs:SendMessage
+              Resource: !GetAtt DataTransformationQueue.Arn
+        Queues:
+          - !Ref DataTransformationQueue
+    DataTransformationPipe:
+      Type: AWS::Pipes::Pipe
+      Properties:
+        Name: data-transformation-pipe
+        RoleArn: !GetAtt PipeRole.Arn
+        Source: !GetAtt ReviewsTable.StreamArn
+        SourceParameters:
+          DynamoDBStreamParameters:
+            StartingPosition: LATEST
+        Target: !GetAtt DataTransformationQueue.Arn
+    PipeRole:
+      Type: AWS::IAM::Role
+      Properties:
+        RoleName: DataTransformationPipeRole
+        AssumeRolePolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Principal:
+                Service: pipes.amazonaws.com
+              Action: sts:AssumeRole
+        Policies:
+          - PolicyName: PipePolicy
+            PolicyDocument:
+              Version: "2012-10-17"
+              Statement:
+                - Effect: Allow
+                  Action:
+                    - dynamodb:DescribeStream
+                    - dynamodb:GetRecords
+                    - dynamodb:GetShardIterator
+                  Resource: !Sub "arn:aws:dynamodb:${env:REGION}:${env:AWS_ACCOUNT_ID}:table/parsed-reviews/stream/*"
+                - Effect: Allow
+                  Action:
+                    - sqs:SendMessage
+                  Resource: !GetAtt DataTransformationQueue.Arn
