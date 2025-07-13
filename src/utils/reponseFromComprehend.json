@@ -1,0 +1,27 @@
+{
+    "sentiment": {
+        "sentiment": "POSITIVE",
+        "sentimentScore": {
+            "Mixed": 0.0010024778312072158,
+            "Negative": 0.001958489418029785,
+            "Neutral": 0.0002342353545827791,
+            "Positive": 0.9968047142028809
+        }
+    },
+    "keyPhrases": [
+        "the Vitality canned dog food products",
+        "good quality",
+        "The product",
+        "a stew",
+        "a processed meat",
+        "My Labrador",
+        "this product"
+    ],
+    "entities": [
+        {
+            "text": "Vitality",
+            "type": "ORGANIZATION",
+            "score": 0.9915196299552917
+        }
+    ]
+}

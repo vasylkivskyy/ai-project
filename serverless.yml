@@ -40,6 +40,12 @@ provider:
       Action:
         - "sqs:SendMessage"
       Resource: !GetAtt DataTransformationQueue.Arn
+    - Effect: "Allow"
+      Action:
+        - "comprehend:DetectSentiment"
+        - "comprehend:DetectEntities"
+        - "comprehend:DetectKeyPhrases"
+      Resource: "*"
 
 plugins:
   - serverless-offline

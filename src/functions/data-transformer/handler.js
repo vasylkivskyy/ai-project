@@ -1,4 +1,5 @@
 import { getEmbeddingFromBedrock } from "./bedrockService.js";
+import { getInsightsFromComprehend } from "./comprehendService.js";
 
 export const handler = async (event) => {
   try {
@@ -11,6 +12,9 @@ export const handler = async (event) => {
 
       const embedding = await getEmbeddingFromBedrock(reviewText);
       console.log("Embedding:", embedding);
+
+      const insights = await getInsightsFromComprehend(reviewText);
+      console.log("Insights from Comprehend:", insights);
     }
 
     return {
