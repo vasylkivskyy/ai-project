@@ -12,14 +12,14 @@ const pool = new Pool({
 
 let isTableInitialized = false;
 
-async function ensureTableExists() {
+const ensureTableExists = async () => {
   if (!isTableInitialized) {
     try {
       const client = await pool.connect();
       try {
         await client.query(`
           CREATE EXTENSION IF NOT EXISTS vector;
-
+          
           CREATE TABLE IF NOT EXISTS reviews (
             id VARCHAR(255) PRIMARY KEY,
             text TEXT,
@@ -41,9 +41,9 @@ async function ensureTableExists() {
       throw error;
     }
   }
-}
+};
 
-function formatEmbeddingForPostgres(embedding) {
+const formatEmbeddingForPostgres = (embedding) => {
   if (!Array.isArray(embedding)) {
     console.error("Embedding is not an array:", typeof embedding, embedding);
     throw new Error("Embedding must be an array");
@@ -56,14 +56,14 @@ function formatEmbeddingForPostgres(embedding) {
   );
 
   return vectorString;
-}
+};
 
-export async function saveToPostgreSQL(
+export const saveToPostgreSQL = async (
   reviewId,
   reviewText,
   embedding,
   insights
-) {
+) => {
   const client = await pool.connect();
 
   try {
@@ -92,4 +92,4 @@ export async function saveToPostgreSQL(
   } finally {
     client.release();
   }
-}
+};
