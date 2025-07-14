@@ -10,11 +10,13 @@ export const handler = async (event) => {
       console.log("Received message:", record.body);
       console.log("Review text:", reviewText);
 
-      const embedding = await getEmbeddingFromBedrock(reviewText);
-      console.log("Embedding:", embedding);
+      const [embedding, insights] = await Promise.all([
+        getEmbeddingFromBedrock(reviewText),
+        getInsightsFromComprehend(reviewText),
+      ]);
 
-      const insights = await getInsightsFromComprehend(reviewText);
-      console.log("Insights from Comprehend:", insights);
+      console.log("Embedding generated1:", embedding);
+      console.log("Insights generated1:", insights);
     }
 
     return {
