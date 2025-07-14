@@ -1,11 +1,13 @@
 import { getEmbeddingFromBedrock } from "./bedrockService.js";
 import { getInsightsFromComprehend } from "./comprehendService.js";
+import { saveToPostgreSQL } from "./postgresService.js";
 
 export const handler = async (event) => {
   try {
     for (const record of event.Records) {
       const message = JSON.parse(record.body);
       const reviewText = message.dynamodb.NewImage.Text.S;
+      const reviewId = message.dynamodb.NewImage.Id.S;
 
       console.log("Received message:", record.body);
       console.log("Review text:", reviewText);
@@ -15,8 +17,10 @@ export const handler = async (event) => {
         getInsightsFromComprehend(reviewText),
       ]);
 
-      console.log("Embedding generated: ", embedding);
-      console.log("Insights generated: ", insights);
+      console.log("Embedding generated:", embedding);
+      console.log("Insights generated:", insights);
+
+      await saveToPostgreSQL(reviewId, reviewText, embedding, insights);
     }
 
     return {

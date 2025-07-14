@@ -46,6 +46,10 @@ provider:
         - "comprehend:DetectEntities"
         - "comprehend:DetectKeyPhrases"
       Resource: "*"
+    - Effect: "Allow"
+      Action:
+        - "rds-db:connect"
+      Resource: !Sub "arn:aws:rds-db:${AWS::Region}:${AWS::AccountId}:dbuser:${PostgreSQLDatabase.DBInstanceIdentifier}/postgres"
 
 plugins:
   - serverless-offline
@@ -319,7 +323,7 @@ resources:
         DBInstanceIdentifier: ai-project-postgres-1
         DBInstanceClass: db.t3.micro
         Engine: postgres
-        EngineVersion: "15.13"
+        EngineVersion: "17.5"
         MasterUsername: postgres
         MasterUserPassword: ${env:DB_PASSWORD}
         AllocatedStorage: 20
