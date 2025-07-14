@@ -15,8 +15,8 @@ export const handler = async (event) => {
         getInsightsFromComprehend(reviewText),
       ]);
 
-      console.log("Embedding generated1:", embedding);
-      console.log("Insights generated1:", insights);
+      console.log("Embedding generated: ", embedding);
+      console.log("Insights generated: ", insights);
     }
 
     return {
