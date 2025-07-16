@@ -1,6 +1,7 @@
 import { getEmbeddingFromBedrock } from "./bedrockService.js";
 import { getInsightsFromComprehend } from "./comprehendService.js";
 import { saveToPostgreSQL } from "./postgresService.js";
+import { sendEvent } from "../../utils/eventBridgeService.js";
 
 export const handler = async (event) => {
   try {
@@ -21,6 +22,8 @@ export const handler = async (event) => {
       console.log("Insights generated:", insights);
 
       await saveToPostgreSQL(reviewId, reviewText, embedding, insights);
+
+      await sendEvent("custom.dataTransformer", "DATA_TRANSFORMED", insights);
     }
 
     return {

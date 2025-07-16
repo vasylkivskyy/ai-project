@@ -17,6 +17,7 @@
         "@aws-sdk/client-s3": "^3.844.0",
         "@langchain/aws": "^0.1.11",
         "csv-parser": "^3.2.0",
+        "pg": "^8.16.3",
         "serverless-dotenv-plugin": "^6.0.0",
         "uuid": "^10.0.0"
     },

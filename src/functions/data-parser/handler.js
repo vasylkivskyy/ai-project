@@ -1,8 +1,11 @@
 import { getObjectFromS3 } from "./s3Service.js";
 import { parseCsv } from "../../utils/csvParser.js";
 import { getS3EventFromSqs, getS3Details } from "./sqsService.js";
-import { saveReviewItems, saveMetadataItem } from "./dynamoDbService.js";
-import { sendEvent } from "./eventBridgeService.js";
+import {
+  saveReviewItems,
+  saveMetadataItem,
+} from "../../utils/dynamoDbService.js";
+import { sendEvent } from "../../utils/eventBridgeService.js";
 
 export const handler = async (event) => {
   console.log("Data parsing event received");
@@ -21,7 +24,12 @@ export const handler = async (event) => {
     await saveMetadataItem(key, bucket, reviews.length);
     console.log("metadata saved in db");
 
-    await sendEvent(bucket, key, reviews.length);
+    await sendEvent("custom.dataParser", "FILE_PARSED", {
+      message: "File processed successfully",
+      bucket,
+      key,
+      rowsProcessed: reviews.length,
+    });
     console.log("event sended");
 
     return {

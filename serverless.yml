@@ -20,6 +20,7 @@ provider:
       Resource:
         - !GetAtt DataParsingQueue.Arn
         - !GetAtt DataTransformationQueue.Arn
+        - !GetAtt DataCachingQueue.Arn
     - Effect: "Allow"
       Action:
         - "events:PutEvents"
@@ -30,6 +31,7 @@ provider:
       Resource:
         - "arn:aws:dynamodb:${env:REGION}:${env:AWS_ACCOUNT_ID}:table/parsed-reviews"
         - "arn:aws:dynamodb:${env:REGION}:${env:AWS_ACCOUNT_ID}:table/parsing-metadata"
+        - "arn:aws:dynamodb:${env:REGION}:${env:AWS_ACCOUNT_ID}:table/cached-data"
     - Effect: "Allow"
       Action:
         - "dynamodb:DescribeStream"
@@ -46,10 +48,6 @@ provider:
         - "comprehend:DetectEntities"
         - "comprehend:DetectKeyPhrases"
       Resource: "*"
-    - Effect: "Allow"
-      Action:
-        - "rds-db:connect"
-      Resource: !Sub "arn:aws:rds-db:${AWS::Region}:${AWS::AccountId}:dbuser:${PostgreSQLDatabase.DBInstanceIdentifier}/postgres"
 
 plugins:
   - serverless-offline
@@ -69,6 +67,11 @@ functions:
     events:
       - sqs:
           arn: !GetAtt DataTransformationQueue.Arn
+  data-cacher:
+    handler: src/functions/data-cacher/handler.handler
+    events:
+      - sqs:
+          arn: !GetAtt DataCachingQueue.Arn
 
 resources:
   Resources:
@@ -333,3 +336,44 @@ resources:
         BackupRetentionPeriod: 0
         DeletionProtection: false
         PubliclyAccessible: true ###!
+    DataCachingQueue:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: data-caching-queue
+    EventBridgeToSQSRule:
+      Type: AWS::Events::Rule
+      Properties:
+        EventPattern:
+          source:
+            - custom.dataTransformer
+          detail-type:
+            - DATA_TRANSFORMED
+        Targets:
+          - Arn: !GetAtt DataCachingQueue.Arn
+            Id: DataCachingQueueTarget
+    SQSQueue2Policy:
+      Type: AWS::SQS::QueuePolicy
+      Properties:
+        PolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Principal:
+                Service: events.amazonaws.com
+              Action: sqs:SendMessage
+              Resource: !GetAtt DataCachingQueue.Arn
+        Queues:
+          - !Ref DataCachingQueue
+    CachedDataTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: cached-data
+        AttributeDefinitions:
+          - AttributeName: Id
+            AttributeType: S
+        KeySchema:
+          - AttributeName: Id
+            KeyType: HASH
+        ProvisionedThroughput:
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1

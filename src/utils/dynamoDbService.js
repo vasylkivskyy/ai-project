@@ -34,3 +34,18 @@ export const saveMetadataItem = async (
   };
   await dynamoDBClient.send(new PutItemCommand(metadataItem));
 };
+
+export const saveCachedData = async (data) => {
+  const cachedItem = {
+    TableName: "cached-data",
+    Item: marshall({
+      Id: data.id,
+      sentiment: data.sentiment,
+      keyPhrases: data.keyPhrases,
+      entities: data.entities,
+      timestamp: new Date().toISOString(),
+    }),
+  };
+
+  await dynamoDBClient.send(new PutItemCommand(cachedItem));
+};
